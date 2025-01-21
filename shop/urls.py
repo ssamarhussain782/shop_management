@@ -4,7 +4,7 @@ from .views import ShopViewSet, ProductCategoryViewSet, ProductViewSet, SaleView
 
 router = DefaultRouter()
 
-# Register viewsets with explicit basename
+
 router.register(r'shops', ShopViewSet, basename='shop')
 router.register(r'product-categories', ProductCategoryViewSet, basename='productcategory')
 router.register(r'products', ProductViewSet, basename='product')
@@ -13,5 +13,5 @@ router.register(r'sale-items', SaleItemViewSet, basename='saleitem')
 router.register(r'products-sold', ProductSoldViewSet, basename='productsold')
 
 urlpatterns = [
-    path('api/', include(router.urls)),  # Include all the router-generated URLs
+    path('api/', include(router.urls)),
 ]

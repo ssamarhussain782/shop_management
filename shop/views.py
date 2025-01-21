@@ -13,13 +13,12 @@ from django.shortcuts import get_object_or_404
 # View for Shop
 class ShopViewSet(viewsets.ModelViewSet):
     serializer_class = ShopSerializer
-    permission_classes = [IsAuthenticated, IsShopOwner]  # Use IsShopOwner permission
+    permission_classes = [IsAuthenticated, IsShopOwner]
 
     def get_queryset(self):
-        return Shop.objects.filter(owner=self.request.user)  # Filter shops based on the logged-in user
+        return Shop.objects.filter(owner=self.request.user)
 
 
-# View for ProductCategory
 class ProductCategoryViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing Product Categories.
@@ -47,20 +46,18 @@ class ProductCategoryViewSet(viewsets.ModelViewSet):
         return context
 
 
-# View for Product, with filters
 class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
-    filterset_class = ProductFilter  # Apply filtering from ProductFilter
-    permission_classes = [IsAuthenticated, IsShopOwner]  # Use IsShopOwner permission
+    filterset_class = ProductFilter
+    permission_classes = [IsAuthenticated, IsShopOwner]
 
     def get_queryset(self):
-        return Product.objects.filter(shop__owner=self.request.user)  # Filter products by shop owner
+        return Product.objects.filter(shop__owner=self.request.user)
 
     def list(self, request, *args, **kwargs):
-        # Get the queryset from the base class
         queryset = self.get_queryset()
 
-        # Apply custom filtering for date range
+
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
 
@@ -69,7 +66,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         if end_date:
             queryset = queryset.filter(added_at__lte=end_date)
 
-        # Apply custom filtering for inventory range
+
         min_inventory = request.query_params.get('min_inventory')
         max_inventory = request.query_params.get('max_inventory')
 
@@ -78,7 +75,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         if max_inventory:
             queryset = queryset.filter(inventory__lte=max_inventory)
 
-        # Perform filtering with ProductFilter
+
         queryset = self.filter_queryset(queryset)
 
         # Apply pagination
@@ -87,7 +84,7 @@ class ProductViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
 
-        # If no pagination is applied, return the full queryset
+
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -111,7 +108,7 @@ class SaleViewSet(viewsets.ModelViewSet):
         if end_date:
             queryset = queryset.filter(sale_date__lte=end_date)
 
-        # Annotate items with product price, MRP, and calculate total sales
+
         product_price_subquery = Subquery(
             Product.objects.filter(id=OuterRef('items__product_id')).values('price')[:1]
         )
@@ -119,7 +116,6 @@ class SaleViewSet(viewsets.ModelViewSet):
             Product.objects.filter(id=OuterRef('items__product_id')).values('mrp')[:1]
         )
 
-        # Annotate total profit for each sale
         total_profit_annotation = ExpressionWrapper(
             product_price_subquery - product_mrp_subquery,
             output_field=DecimalField()
@@ -130,7 +126,6 @@ class SaleViewSet(viewsets.ModelViewSet):
             total_profit=Sum(total_profit_annotation * F('items__quantity'))  # Calculate total profit
         ).values('id', 'receipt_number', 'sale_date', 'total_sales', 'total_profit')
 
-        # Filter by minimum and maximum amounts if provided
         min_amount = request.query_params.get('min_amount', None)
         max_amount = request.query_params.get('max_amount', None)
 
@@ -153,7 +148,6 @@ class SaleItemViewSet(viewsets.ModelViewSet):
     filterset_class = SaleItemFilter
 
     def get_queryset(self):
-        # Only filter SaleItems for the authenticated user's shop
         return SaleItem.objects.filter(sale__shop__owner=self.request.user)
 
 
@@ -172,12 +166,10 @@ class ProductSoldViewSet(viewsets.ModelViewSet):
         return SaleItem.objects.all()
 
     def list(self, request, *args, **kwargs):
-        # Extract query parameters
         product_id = request.query_params.get('product')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
 
-        # Validate product_id
         if not product_id:
             return Response({"error": "Product ID is required."}, status=400)
 
@@ -186,17 +178,13 @@ class ProductSoldViewSet(viewsets.ModelViewSet):
         except ValueError:
             return Response({"error": "Invalid Product ID."}, status=400)
 
-        # Filter SaleItems by product
         queryset = SaleItem.objects.filter(product_id=product_id)
 
-        # Apply date filters if provided
         if start_date:
             queryset = queryset.filter(sale__sale_date__gte=start_date)
         if end_date:
             queryset = queryset.filter(sale__sale_date__lte=end_date)
 
-        # Aggregate the data: total quantity and total sales value
-        # Use Subquery to get the price of the product associated with the SaleItem
         product_price_subquery = Subquery(
             Product.objects.filter(id=OuterRef('product_id')).values('price')[:1]
         )
@@ -206,10 +194,8 @@ class ProductSoldViewSet(viewsets.ModelViewSet):
             total_sales_value=Sum(F('quantity') * product_price_subquery)
         )
 
-        # If no data found, return empty list
         if not aggregated_data:
             return Response([])
 
-        # Return the aggregated data as the response
         return Response(aggregated_data)
 

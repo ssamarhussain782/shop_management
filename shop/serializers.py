@@ -16,17 +16,16 @@ class UserSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = super().create(validated_data)
-        # Set the user's shop (example logic, adjust as per your requirements)
+
         user.shop = Shop.objects.get(name='Default Shop')  # Example logic
         user.save()
         return user
 
 class ProductCategorySerializer(serializers.ModelSerializer):
-    shop = serializers.PrimaryKeyRelatedField(queryset=Shop.objects.none())  # Default to empty queryset
+    shop = serializers.PrimaryKeyRelatedField(queryset=Shop.objects.none())
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Restrict the shop queryset to the user's shops
         user = self.context['request'].user
         if user.is_authenticated:
             self.fields['shop'].queryset = Shop.objects.filter(owner=user)
@@ -42,7 +41,6 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Restrict the shop queryset to the user's shops
         user = self.context['request'].user
         if user.is_authenticated:
             self.fields['shop'].queryset = Shop.objects.filter(owner=user)
@@ -56,15 +54,14 @@ class SaleSerializer(serializers.ModelSerializer):
     receipt_number = serializers.CharField(read_only=True)
     id = serializers.IntegerField(read_only=True)
 
-    # Filter the shops based on the logged-in user
     shop = serializers.PrimaryKeyRelatedField(
-        queryset=Shop.objects.none()  # Default to empty queryset
+        queryset=Shop.objects.none()
     )
 
     def __init__(self, *args, **kwargs):
         request = kwargs['context']['request']
         super().__init__(*args, **kwargs)
-        # Filter shops for the authenticated user
+
         if request and request.user.is_authenticated:
             self.fields['shop'].queryset = Shop.objects.filter(owner=request.user)
 
@@ -77,16 +74,15 @@ class SaleItemSerializer(serializers.ModelSerializer):
 
     # Fetch the receipt number from the sale table
     receipt_number = serializers.ReadOnlyField(source='sale.receipt_number')
-    # Fetch the product price dynamically (read-only)
     product_price = serializers.DecimalField(
         source='product.price', max_digits=10, decimal_places=2, read_only=True
     )
 
     sale = serializers.PrimaryKeyRelatedField(
-        queryset=Sale.objects.none()  # Default to an empty queryset initially
+        queryset=Sale.objects.none()
     )
     product = serializers.PrimaryKeyRelatedField(
-        queryset=Product.objects.none()  # Default to an empty queryset initially
+        queryset=Product.objects.none()
     )
 
     def __init__(self, *args, **kwargs):

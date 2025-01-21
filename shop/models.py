@@ -41,7 +41,7 @@ class Product(models.Model):
     price = models.DecimalField(
         max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)]
     )
-    mrp = models.DecimalField(  # New MRP field
+    mrp = models.DecimalField(
         max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)], null=True, blank=True
     )
     inventory = models.PositiveIntegerField(
@@ -68,12 +68,12 @@ class Sale(models.Model):
     receipt_number = models.CharField(max_length=50, unique=True, editable=False)
     shop = models.ForeignKey(
         Shop, on_delete=models.CASCADE, related_name='sales'
-    )  # Explicit connection to the shop
+    )
     sale_date = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
         if not self.receipt_number:
-            self.receipt_number = str(uuid4())[:8]  # Generate short unique ID
+            self.receipt_number = str(uuid4())[:8]
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -89,17 +89,15 @@ class SaleItem(models.Model):
     quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)])
 
     def save(self, *args, **kwargs):
-        # Check if the object is being created or updated
         is_new = self._state.adding
 
-        # If it's an update, get the original quantity to adjust inventory
+
         if not is_new:
             original = SaleItem.objects.get(pk=self.pk)
             inventory_adjustment = self.quantity - original.quantity
         else:
             inventory_adjustment = self.quantity
 
-        # Ensure there's enough stock for the new or updated quantity
         if self.product.inventory < inventory_adjustment:
             raise ValueError(f"Not enough inventory for product {self.product.name}.")
 
@@ -110,7 +108,6 @@ class SaleItem(models.Model):
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        # Restore the inventory when a sale item is deleted
         self.product.inventory += self.quantity
         self.product.save()
         super().delete(*args, **kwargs)
