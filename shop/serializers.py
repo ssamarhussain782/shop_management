@@ -21,7 +21,6 @@ class UserSerializer(serializers.ModelSerializer):
         user.save()
         return user
 
-
 class ProductCategorySerializer(serializers.ModelSerializer):
     shop = serializers.PrimaryKeyRelatedField(queryset=Shop.objects.none())  # Default to empty queryset
 
@@ -39,6 +38,7 @@ class ProductCategorySerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     category = serializers.PrimaryKeyRelatedField(queryset=ProductCategory.objects.all(), required=False)
+    category_name = serializers.CharField(source='category.name', read_only=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

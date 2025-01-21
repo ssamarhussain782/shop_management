@@ -9,6 +9,7 @@ class Shop(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='owned_shops'
     )
     description = models.TextField(null=True, blank=True)
+    address = models.CharField(max_length=1024, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -36,7 +37,6 @@ class ProductCategory(models.Model):
 
 class Product(models.Model):
     name = models.CharField(max_length=255)
-    slug = models.SlugField(unique=True)
     description = models.TextField(null=True, blank=True)
     price = models.DecimalField(
         max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)]

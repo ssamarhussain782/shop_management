@@ -6,8 +6,7 @@ from .serializers import ShopSerializer, ProductCategorySerializer, ProductSeria
 from .filters import ProductFilter, SaleFilter, SaleItemFilter
 from rest_framework.permissions import IsAuthenticated  # Assuming permission for authentication
 from .permissions import IsShopOwner  # Use IsShopOwner instead of CustomPermission
-from django.db.models import F, Sum
-from django.db.models import Subquery, OuterRef
+from django.db.models import F, Sum, Subquery, OuterRef, ExpressionWrapper, DecimalField
 from django.shortcuts import get_object_or_404
 
 
@@ -28,6 +27,7 @@ class ProductCategoryViewSet(viewsets.ModelViewSet):
     """
     serializer_class = ProductCategorySerializer
     permission_classes = [IsAuthenticated, IsShopOwner]
+    pagination_class = None
 
     def get_queryset(self):
         """
@@ -95,16 +95,14 @@ class ProductViewSet(viewsets.ModelViewSet):
 class SaleViewSet(viewsets.ModelViewSet):
     serializer_class = SaleSerializer
     filterset_class = SaleFilter
-    permission_classes = [IsAuthenticated, IsShopOwner]  # Use IsShopOwner permission
+    permission_classes = [IsAuthenticated, IsShopOwner]
 
     def get_queryset(self):
-        return Sale.objects.filter(shop__owner=self.request.user)  # Filter sales by shop owner
+        return Sale.objects.filter(shop__owner=self.request.user)
 
     def list(self, request, *args, **kwargs):
-        # Apply filters to the queryset
         queryset = self.filter_queryset(self.get_queryset())
 
-        # Handle date filtering explicitly
         start_date = request.query_params.get('start_date', None)
         end_date = request.query_params.get('end_date', None)
 
@@ -113,16 +111,26 @@ class SaleViewSet(viewsets.ModelViewSet):
         if end_date:
             queryset = queryset.filter(sale_date__lte=end_date)
 
-        # Annotate items with product price and calculate total sales
+        # Annotate items with product price, MRP, and calculate total sales
         product_price_subquery = Subquery(
             Product.objects.filter(id=OuterRef('items__product_id')).values('price')[:1]
         )
+        product_mrp_subquery = Subquery(
+            Product.objects.filter(id=OuterRef('items__product_id')).values('mrp')[:1]
+        )
+
+        # Annotate total profit for each sale
+        total_profit_annotation = ExpressionWrapper(
+            product_price_subquery - product_mrp_subquery,
+            output_field=DecimalField()
+        )
 
         aggregated_sales = queryset.annotate(
-            total_sales=Sum(product_price_subquery * F('items__quantity'))
-        ).values('id', 'receipt_number', 'sale_date', 'total_sales')
+            total_sales=Sum(product_price_subquery * F('items__quantity')),
+            total_profit=Sum(total_profit_annotation * F('items__quantity'))  # Calculate total profit
+        ).values('id', 'receipt_number', 'sale_date', 'total_sales', 'total_profit')
 
-        # Apply min_amount and max_amount filtering after aggregation
+        # Filter by minimum and maximum amounts if provided
         min_amount = request.query_params.get('min_amount', None)
         max_amount = request.query_params.get('max_amount', None)
 
@@ -204,3 +212,4 @@ class ProductSoldViewSet(viewsets.ModelViewSet):
 
         # Return the aggregated data as the response
         return Response(aggregated_data)
+
